@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { auth, signOut } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -55,23 +56,43 @@ export default async function Dashboard() {
         ) : (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
             {sketches.map((sketch) => (
-              <Link
+              <div
                 key={sketch.id}
-                href={`/draw/${sketch.id}`}
-                className="flex flex-col overflow-hidden rounded-xl border border-black/[.08] bg-white transition-colors hover:border-zinc-400 dark:border-white/[.145] dark:bg-zinc-950 dark:hover:border-zinc-600"
+                className="group relative flex flex-col overflow-hidden rounded-xl border border-black/[.08] bg-white transition-colors hover:border-zinc-400 dark:border-white/[.145] dark:bg-zinc-950 dark:hover:border-zinc-600"
               >
-                <div className="flex aspect-square items-center justify-center bg-zinc-100 text-zinc-400 dark:bg-zinc-900">
-                  no preview
-                </div>
-                <div className="px-3 py-2">
-                  <p className="truncate text-sm font-medium text-black dark:text-zinc-50">
-                    {sketch.title}
-                  </p>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-500">
-                    {sketch.updatedAt.toLocaleDateString()}
-                  </p>
-                </div>
-              </Link>
+                <Link href={`/draw/${sketch.id}`} className="flex flex-1 flex-col">
+                  <div className="flex aspect-square items-center justify-center bg-zinc-100 text-zinc-400 dark:bg-zinc-900">
+                    no preview
+                  </div>
+                  <div className="px-3 py-2">
+                    <p className="truncate text-sm font-medium text-black dark:text-zinc-50">
+                      {sketch.title}
+                    </p>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-500">
+                      {sketch.updatedAt.toLocaleDateString()}
+                    </p>
+                  </div>
+                </Link>
+                <form
+                  action={async () => {
+                    "use server";
+                    const deleteSession = await auth();
+                    if (!deleteSession?.user) return;
+                    await prisma.sketch.deleteMany({
+                      where: { id: sketch.id, userId: deleteSession.user.id },
+                    });
+                    revalidatePath("/");
+                  }}
+                  className="absolute right-2 top-2 opacity-0 transition-opacity group-hover:opacity-100"
+                >
+                  <button
+                    type="submit"
+                    className="rounded-full bg-white px-2 py-1 text-xs font-medium text-red-600 shadow dark:bg-zinc-800"
+                  >
+                    Delete
+                  </button>
+                </form>
+              </div>
             ))}
           </div>
         )}
