@@ -8,20 +8,42 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  name         String?
-  email        String   @unique
-  passwordHash String
-  createdAt    DateTime @default(now())
-  sketches     Sketch[]
+  id            String               @id @default(cuid())
+  name          String?
+  email         String               @unique
+  passwordHash  String
+  createdAt     DateTime             @default(now())
+  sketches      Sketch[]
+  collaborating SketchCollaborator[]
 }
 
 model Sketch {
   id        String   @id @default(cuid())
   title     String   @default("Untitled")
   data      Json     @default("[]")
+  // When true, any signed-in user who has the sketch's URL can open it and
+  // draw collaboratively, not just the owner - the id itself (an unguessable
+  // cuid) doubles as the share link, so no separate token is needed.
+  isShared  Boolean  @default(false)
   userId    String
   user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  collaborators SketchCollaborator[]
+}
+
+// One row per (sketch, non-owner user) who has actually opened a shared
+// sketch - `isShared` alone only controls whether a URL grants access, it
+// doesn't record who's used that access. This is what lets a collaborator's
+// own dashboard show sketches they've contributed to but don't own.
+model SketchCollaborator {
+  id            String   @id @default(cuid())
+  sketchId      String
+  sketch        Sketch   @relation(fields: [sketchId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastVisitedAt DateTime @default(now())
+
+  @@unique([sketchId, userId])
 }
